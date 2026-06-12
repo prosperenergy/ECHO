@@ -1,18 +1,14 @@
 # ECHO - Explore Calls, Hearings & Observations
 
-> ## ⚠️ Project shelved
+> ## ✅ Development restarted (June 2026)
 >
-> **ECHO is paused until Zoom exposes a user-level OAuth scope for AI Companion meeting summaries (Call Notes).**
+> **ECHO now supports Zoom AI Companion Call Notes.** Zoom exposes a user-level OAuth scope for AI Companion meeting summaries (`meeting:read:summary`), so ECHO can retrieve meeting summaries even when cloud recording was not active. One Zoom limitation remains: summaries are host-only at user scope, so you can retrieve notes from meetings you hosted, not ones you merely attended.
 >
-> The original goal was per-user search across your own Zoom Call Notes. Zoom currently only offers admin-level scopes (`meeting_summary:read:admin`) for that data, which conflicts with the user-scoped security posture this project was built around.
->
-> What exists in this repo still works for **cloud-recorded meetings you host**, but the core Call Notes use case is blocked on Zoom's API. We are waiting on Zoom to add a user-level equivalent (tracked in the [Zoom developer forum](https://devforum.zoom.us/t/add-api-to-retrieve-meeting-summary-and-other-contents-from-ai-companion/98726)) before resuming development.
+> Rollout is pending two user-managed scopes (`meeting:read:summary`, `meeting:read:list_meetings`) being added to your org's Zoom OAuth app, after which each user re-runs `echo-login` once.
 
 MCP server for searching your Zoom meeting transcripts from any MCP-compatible AI tool. Part of the [Alpine Toolkit](https://github.com/Percona-Lab).
 
 Uses OAuth 2.0 + PKCE so no secrets ever touch your machine. You log in with your own Zoom account and ECHO can only see your recordings.
-
-> **Status (June 2026): development restarted.** ECHO now supports Zoom AI Companion Call Notes through the user-level `meeting:read:summary` scope, so it can retrieve meeting summaries even when cloud recording was not active. Zoom only exposes these summaries to the meeting host, so this covers meetings you hosted. Rollout is pending the new scopes being added to your org's Zoom OAuth app.
 
 ## Install
 
