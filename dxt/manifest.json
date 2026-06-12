@@ -48,6 +48,14 @@
     {
       "name": "meeting_summary",
       "description": "Get a structured summary of a meeting."
+    },
+    {
+      "name": "list_past_meetings",
+      "description": "List recent hosted meetings, including ones without cloud recordings."
+    },
+    {
+      "name": "ai_meeting_notes",
+      "description": "Get the AI Companion (note-taking) summary for a hosted meeting."
     }
   ],
   "keywords": [

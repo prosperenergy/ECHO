@@ -8,6 +8,7 @@ obtained via the OAuth Authorization Code + PKCE flow, stored in
 from __future__ import annotations
 
 import os
+from urllib.parse import quote
 
 import httpx
 from dotenv import load_dotenv
@@ -22,6 +23,17 @@ BASE_URL = "https://api.zoom.us/v2"
 
 class NotConfiguredError(Exception):
     """Raised when ECHO is not yet configured or authenticated."""
+
+
+def _encode_meeting_id(meeting_id: str) -> str:
+    """URL-encode a meeting ID/UUID for use in a path segment.
+
+    Zoom requires UUIDs that begin with "/" or contain "//" to be
+    double URL-encoded.
+    """
+    if meeting_id.startswith("/") or "//" in meeting_id:
+        return quote(quote(meeting_id, safe=""), safe="")
+    return quote(meeting_id, safe="")
 
 
 class ZoomConnector:
@@ -104,6 +116,33 @@ class ZoomConnector:
     async def get_meeting_recordings(self, meeting_id: str) -> dict:
         """Get recording files (including transcript) for a specific meeting."""
         return await self._request("GET", f"/meetings/{meeting_id}/recordings")
+
+    async def list_past_meetings(self, page_size: int = 30) -> dict:
+        """List past meetings hosted by the authenticated user.
+
+        Unlike list_recordings, this includes meetings that were never
+        cloud-recorded — e.g. ones that only used AI Companion notes.
+        """
+        return await self._request(
+            "GET",
+            "/users/me/meetings",
+            params={"type": "previous_meetings", "page_size": page_size},
+        )
+
+    async def get_meeting_summary(self, meeting_id: str) -> dict | None:
+        """Get the AI Companion meeting summary for a hosted meeting.
+
+        Returns None if the meeting has no AI Companion summary. Zoom only
+        exposes summaries to the meeting host at user scope, so meetings
+        the user merely attended will also come back as None (404).
+        """
+        path = f"/meetings/{_encode_meeting_id(meeting_id)}/meeting_summary"
+        try:
+            return await self._request("GET", path)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                return None
+            raise
 
     async def get_transcript_content(self, download_url: str) -> str:
         """Download the VTT transcript content from a recording download URL."""

@@ -33,8 +33,15 @@ REDIRECT_URI = f"http://localhost:{REDIRECT_PORT}/callback"
 TOKEN_DIR = Path.home() / ".echo"
 TOKEN_FILE = TOKEN_DIR / "tokens.json"
 
-# Scopes: read own recordings + basic user info (granular scope names)
-SCOPES = "cloud_recording:read:content cloud_recording:read:list_user_recordings user:read:user"
+# Scopes: read own recordings, AI Companion summaries for hosted meetings,
+# past-meeting listing + basic user info (granular scope names)
+SCOPES = (
+    "cloud_recording:read:content "
+    "cloud_recording:read:list_user_recordings "
+    "meeting:read:summary "
+    "meeting:read:list_meetings "
+    "user:read:user"
+)
 
 
 def _bff_url() -> str | None:

@@ -12,6 +12,8 @@ MCP server for searching your Zoom meeting transcripts from any MCP-compatible A
 
 Uses OAuth 2.0 + PKCE so no secrets ever touch your machine. You log in with your own Zoom account and ECHO can only see your recordings.
 
+> **Status (June 2026): development restarted.** ECHO now supports Zoom AI Companion Call Notes through the user-level `meeting:read:summary` scope, so it can retrieve meeting summaries even when cloud recording was not active. Zoom only exposes these summaries to the meeting host, so this covers meetings you hosted. Rollout is pending the new scopes being added to your org's Zoom OAuth app.
+
 ## Install
 
 ```bash
@@ -25,7 +27,7 @@ The installer walks you through:
 4. One-time Zoom OAuth login
 
 Once installed, your AI tool gets these slash commands automatically:
-`/echo_status`, `/echo_recent`, `/echo_search <query>`, `/echo_summary <id>`, `/echo_transcript <id>`.
+`/echo_status`, `/echo_recent`, `/echo_search <query>`, `/echo_summary <id>`, `/echo_transcript <id>`, `/echo_notes <meeting>`.
 
 The installer will guide you through:
 1. Cloning the repo and installing dependencies
@@ -45,6 +47,8 @@ You need a **Zoom OAuth Client ID** from a General App (OAuth 2.0). If you have 
 4. Under **Scopes**, choose **User-managed** and add:
    - `cloud_recording:read:content`
    - `cloud_recording:read:list_user_recordings`
+   - `meeting:read:summary`
+   - `meeting:read:list_meetings`
    - `user:read:user`
 5. Activate the app
 6. Copy the **Client ID** (you do not need the Client Secret)
@@ -79,6 +83,8 @@ Client IDs are public identifiers, safe to commit.
 | `get_transcript` | Get the full transcript for a specific meeting |
 | `search_transcripts` | Search across your meeting transcripts by keyword or phrase |
 | `meeting_summary` | Get participants and a condensed conversation flow |
+| `list_past_meetings` | List recent meetings you hosted, including ones without recordings |
+| `ai_meeting_notes` | Get the AI Companion (note-taking) summary for a meeting you hosted |
 
 ## CLI Commands
 

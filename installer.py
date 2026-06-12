@@ -206,6 +206,8 @@ def step_zoom_oauth(install_dir: Path) -> str | None:
     info(f"  3. Under Scopes, choose User-managed and add:")
     info(f"     cloud_recording:read:content")
     info(f"     cloud_recording:read:list_user_recordings")
+    info(f"     meeting:read:summary")
+    info(f"     meeting:read:list_meetings")
     info(f"     user:read:user")
     info(f"  4. Activate the app and copy the Client ID")
     print()

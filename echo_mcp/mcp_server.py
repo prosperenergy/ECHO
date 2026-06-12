@@ -10,6 +10,7 @@ import functools
 import re
 from datetime import date, timedelta
 
+import httpx
 from mcp.server.fastmcp import FastMCP
 
 from .auth import AuthServiceUnreachable, load_tokens, tokens_valid
@@ -33,6 +34,17 @@ def _graceful(fn):
             )
         except NotConfiguredError as e:
             return "**ECHO is not set up yet.**\n\n{}\n\nRun `auth_status` for details.".format(e)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code in (400, 401, 403):
+                return (
+                    "**Zoom rejected the request ({}).**\n\n"
+                    "Your saved token may be missing a newly added scope "
+                    "(e.g. `meeting:read:summary` for AI Companion notes). "
+                    "Make sure the scope is enabled on the Zoom Marketplace "
+                    "app, then run `echo-login` to re-authenticate.\n\n"
+                    "Zoom said: {}".format(e.response.status_code, e.response.text[:300])
+                )
+            raise
 
     return wrapper
 
@@ -328,6 +340,116 @@ async def meeting_summary(meeting_id: str) -> str:
     )
 
 
+def _format_summary_section(details, next_steps) -> str:
+    """Render summary_details + next_steps from a Zoom AI Companion payload."""
+    parts = []
+    if isinstance(details, str) and details.strip():
+        parts.append(details.strip())
+    elif isinstance(details, list):
+        for d in details:
+            label = (d or {}).get("label", "")
+            body = (d or {}).get("summary", "")
+            if label:
+                parts.append("**{}**\n{}".format(label, body))
+            elif body:
+                parts.append(body)
+    if next_steps:
+        steps = "\n".join("- {}".format(s) for s in next_steps if s)
+        if steps:
+            parts.append("**Next steps**\n{}".format(steps))
+    return "\n\n".join(parts)
+
+
+@mcp.tool()
+@_graceful
+async def list_past_meetings(days: int = 30) -> str:
+    """List recent Zoom meetings you hosted, including ones without cloud recordings.
+
+    Use this to find meetings that only used AI Companion notes (the Zoom
+    note-taking feature) — they don't appear in `list_meetings`, which only
+    covers cloud recordings. Feed a meeting's UUID to `ai_meeting_notes`.
+
+    Args:
+        days: How many days back to look (default 30).
+    """
+    data = await zoom.list_past_meetings(page_size=300)
+    cutoff = (date.today() - timedelta(days=days)).isoformat()
+
+    meetings = [
+        m for m in data.get("meetings", [])
+        if m.get("start_time", "")[:10] >= cutoff
+    ]
+    if not meetings:
+        return "No past hosted meetings found in the last {} days.".format(days)
+
+    meetings.sort(key=lambda m: m.get("start_time", ""), reverse=True)
+    results = []
+    for m in meetings:
+        results.append(
+            "- **{}** — {} | ID: {} | UUID: {}".format(
+                m.get("topic", "Untitled"),
+                m.get("start_time", "unknown date"),
+                m.get("id", "?"),
+                m.get("uuid", "?"),
+            )
+        )
+
+    return (
+        "## Past hosted meetings (last {} days)\n\n{}\n\n"
+        "Use `ai_meeting_notes` with a UUID to fetch AI Companion notes."
+    ).format(days, "\n".join(results))
+
+
+@mcp.tool()
+@_graceful
+async def ai_meeting_notes(meeting_id: str) -> str:
+    """Get the AI Companion (Zoom note-taking) summary for a meeting you hosted.
+
+    Works even when the meeting was not cloud-recorded — this reads the
+    summary Zoom's AI Companion generated, not the recording transcript.
+    Zoom only exposes these to the meeting host: notes from meetings you
+    merely attended are not accessible.
+
+    Args:
+        meeting_id: The Zoom meeting UUID (preferred) or numeric meeting ID.
+            For recurring meetings the numeric ID returns the latest instance.
+    """
+    data = await zoom.get_meeting_summary(meeting_id)
+    if data is None:
+        return (
+            "No AI Companion summary found for meeting {}.\n\n"
+            "This usually means one of:\n"
+            "- AI Companion meeting summary wasn't turned on for that meeting\n"
+            "- You weren't the host (Zoom only exposes summaries to the host)\n"
+            "- The summary is still being generated (can take a few minutes "
+            "after the meeting ends)".format(meeting_id)
+        )
+
+    title = data.get("summary_title") or data.get("meeting_topic") or "Meeting"
+    header_bits = []
+    if data.get("meeting_start_time"):
+        header_bits.append("Started: {}".format(data["meeting_start_time"]))
+    if data.get("meeting_host_email"):
+        header_bits.append("Host: {}".format(data["meeting_host_email"]))
+
+    # Prefer the host-edited summary when it exists
+    edited = data.get("edited_summary") or {}
+    body = _format_summary_section(
+        edited.get("summary_details"), edited.get("next_steps")
+    )
+    if not body:
+        body = _format_summary_section(
+            data.get("summary_details") or data.get("summary_overview"),
+            data.get("next_steps"),
+        )
+    if not body:
+        body = "_Summary exists but has no content yet — try again shortly._"
+
+    return "## AI Companion notes: {}\n\n{}\n\n{}".format(
+        title, " | ".join(header_bits), body
+    )
+
+
 # ---------------------------------------------------------------------------
 # Prompts (slash commands in MCP-compatible clients)
 # ---------------------------------------------------------------------------
@@ -389,6 +511,30 @@ def echo_summary(meeting_id: str) -> str:
         f"participants and conversation flow. Then produce a concise "
         f"executive summary: key decisions, action items, and open questions. "
         f"Attribute action items to specific people."
+    )
+
+
+@mcp.prompt()
+def echo_notes(meeting: str = "") -> str:
+    """Fetch AI Companion notes for a Zoom meeting you hosted.
+
+    Args:
+        meeting: Meeting UUID/ID, or a topic/date hint to find it (optional).
+    """
+    if meeting:
+        return (
+            f"The user wants the Zoom AI Companion notes for: {meeting}. "
+            f"If that looks like a meeting UUID or numeric ID, call the "
+            f"`ai_meeting_notes` tool with it directly. Otherwise call "
+            f"`list_past_meetings` first, pick the meeting matching the "
+            f"description, then call `ai_meeting_notes` with its UUID. "
+            f"Present the notes with the summary sections and next steps "
+            f"clearly formatted."
+        )
+    return (
+        "Use the `list_past_meetings` tool to show the user's recent hosted "
+        "meetings, then ask which one they want AI Companion notes for, and "
+        "fetch it with `ai_meeting_notes`."
     )
 
 
