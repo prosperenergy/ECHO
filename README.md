@@ -2,7 +2,7 @@
 
 > ## ✅ Development restarted (June 2026)
 >
-> **ECHO now supports Zoom AI Companion Call Notes.** Zoom exposes a user-level OAuth scope for AI Companion meeting summaries (`meeting:read:summary`), so ECHO can retrieve meeting summaries even when cloud recording was not active. One Zoom limitation remains: summaries are host-only at user scope, so you can retrieve notes from meetings you hosted, not ones you merely attended.
+> **ECHO now supports Zoom AI Companion Call Notes.** Zoom exposes a user-level OAuth scope for AI Companion meeting summaries (`meeting:read:summary`), so ECHO can retrieve meeting summaries even when cloud recording was not active. Access is by meeting ownership: you can retrieve notes for meetings owned by your account (where you are the host). Pure attendees get nothing; co-hosted or shared-to-you meetings are untested and likely restricted by Zoom.
 >
 > Rollout is pending two user-managed scopes (`meeting:read:summary`, `meeting:read:list_meetings`) being added to your org's Zoom OAuth app, after which each user re-runs `echo-login` once.
 
@@ -80,7 +80,7 @@ Client IDs are public identifiers, safe to commit.
 | `search_transcripts` | Search across your meeting transcripts by keyword or phrase |
 | `meeting_summary` | Get participants and a condensed conversation flow |
 | `list_past_meetings` | List recent meetings you hosted, including ones without recordings |
-| `ai_meeting_notes` | Get the AI Companion (note-taking) summary for a meeting you hosted |
+| `ai_meeting_notes` | Get the AI Companion (note-taking) summary for a meeting you own/host |
 
 ## CLI Commands
 
